@@ -159,6 +159,20 @@ describe "jsonConcat options", () ->
             return done()
         middlewareFunc(req, res, next)
 
+    it ".arrayResult make the result an array", (done) ->
+        # correct_result = require("./data/recursive")
+        jsonConcat
+            src: path.join(__dirname, "data/recursive"),
+            dest: null,
+            arrayResult: true
+        , (err, json) ->
+            should(err).not.be.ok
+            should(json).be.a.Array
+            should(json[0]).eql(require("./data/recursive/c"))
+            should(json[1]).eql(require("./data/recursive/a/d"))
+            should(json[2]).eql(require("./data/recursive/a/b/e"))
+            done()
+
 
 describe "jsonConcat callback", () ->
 

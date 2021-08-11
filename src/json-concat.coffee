@@ -38,6 +38,8 @@ Notes:
         We use algorithm 1 at first. If it fails to realize an object,
             we turn to algorithm 2 to scavange any objects it
             can find.
+3. If "arrayResult" option is true, none of these algorythms will be used.
+    We put all the content in an array and print the array to the export file.
 
 ###
 
@@ -109,29 +111,41 @@ readContent = (filepath, resultObject, callback) ->
 
 ###
 Creates a new JSON object from a string of concatenated stringified
-JSON objects.
+JSON objects or a JSON array if user requested it.
 
 @param <string> - {String} string of json
+@param <array> - {Array} array of json
+@param <object> - {object} user options
 @param <callback> - {Function} callback(validString, validObject)
 ###
-concat = (contentString, contentArray, callback) ->
+concat = (contentString, contentArray, options, callback) ->
     return callback("{}", {}) if contentString is ""
-    # using algorithm 1 (faster, not forgiving)
-    string = contentString.replace /^({\s*})*|({\s*})*$/g, ""
-    string = string.replace /}\s*({\s*})*\s*{/g, ","
-    string = string.replace /}\s*{/g, ","
-    try
-        callback(string, JSON.parse(string))
-    catch err
-        # using algorithm 2 (slow, forgiving)
-        result = { }
+    if options.arrayResult
+        result = []
         for content in contentArray
-            try
-                tmp = JSON.parse(content)
-                for key, value of tmp
-                    result[key] = value
-            catch err
-        callback(JSON.stringify(result), result)
+                try
+                    tmp = JSON.parse(content)
+                    result.push(tmp)
+                catch err
+            callback(JSON.stringify(result), result)
+    else
+        # using algorithm 1 (faster, not forgiving)
+        string = contentString.replace /^({\s*})*|({\s*})*$/g, ""
+        string = string.replace /}\s*({\s*})*\s*{/g, ","
+        string = string.replace /}\s*{/g, ","
+
+        try
+            callback(string, JSON.parse(string))
+        catch err
+            # using algorithm 2 (slow, forgiving)
+            result = { }
+            for content in contentArray
+                try
+                    tmp = JSON.parse(content)
+                    for key, value of tmp
+                        result[key] = value
+                catch err
+            callback(JSON.stringify(result), result)
 
 
 ###
@@ -144,6 +158,7 @@ exports = module.exports = (userOptions, callback) ->
         src: userOptions.src || process.cwd()
         dest: userOptions.dest || "./concat.json"
         middleware: userOptions.middleware || false
+        arrayResult: userOptions.arrayResult || false
 
     # ensure `null` is respected for options.dest
     if userOptions.dest is null then options.dest = null
@@ -158,7 +173,7 @@ exports = module.exports = (userOptions, callback) ->
             readContent options.src[index], result, () ->
                 ++index
                 return next() if index < options.src.length
-                concat result.contentString, result.contentArray, (string, obj) ->
+                concat result.contentString, result.contentArray, options, (string, obj) ->
                     if options.dest
                         fs.writeFile options.dest, string, (err) ->
                             callback(err, obj)
